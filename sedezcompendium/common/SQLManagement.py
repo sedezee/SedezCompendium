@@ -77,12 +77,12 @@ def cache(func):
 
         _cache = _cache_dict[func].setdefault(t_type, {})
         cache_key = storage_key(kwargs)
-        if _cache.get(cache_key, None) is not None: 
+        if _cache.get(cache_key, None) is not None:
             return _cache[cache_key]
         res = func(self, o_type, *args, **kwargs)
         _cache[cache_key] = res
         return res
-    
+
     return check_cache
 
 
@@ -96,16 +96,18 @@ def invalidate(func):
         if len(args) > 0: 
             if not isinstance(args[0], type): 
                 t_type = type(args[0])
+            else:
+                t_type = args[0]
             
             try: 
                 t_type = t_type.row_type()
-            except: 
+            except:
                 pass
     
-            for key in _cache_dict: 
-                try: 
-                    del _cache_dict[key][type]
-                except KeyError: 
+            for key in _cache_dict:
+                try:
+                    del _cache_dict[key][t_type]
+                except KeyError:
                     pass
         
         return func(self, *args, **kwargs)
@@ -287,7 +289,27 @@ class GenericDatabase:
             return r
 
     @invalidate
-    def save_item(self, data): 
+    def update_item(self, data, **kwargs):
+        kwargs = self.and_convert(kwargs)
+        query = f"UPDATE {self.__schema}.{data.table_name()} SET "
+        for cr in data:
+            try:
+                for column in cr:
+                    if isinstance(getattr(cr, column), str):
+                        query += f"{column} = '{getattr(cr, column)}',"
+                    else:
+                        query += f"{column} = {getattr(cr, column)},"
+            except (TypeError, AttributeError):
+                if isinstance(getattr(data, cr), str):
+                    query += f"{cr} = '{getattr(data, cr)}',"
+                else:
+                    query += f"{cr} = {getattr(data, cr)},"
+
+        query = query[:-1] + kwargs + ';'
+        self.execute(query)
+
+    @invalidate
+    def insert_item(self, data):
         """
         Save an item to the database. 
         :param data: the data to load in. Subclasses Row or Table.  
@@ -300,23 +322,24 @@ class GenericDatabase:
             else: 
                 raise ValueError()
         except ValueError as e: 
-            print (f"SAVE ITEM: {e}")
+            print(f"INSERT ITEM: {e}")
         except Exception as e: 
             pass
         
         for column in data.__columns__:
             query += f"{getattr(data, column)},"
-        query = f"{query[:-1]});"
+        query = query[:-1]
+        query += ");"
         self.execute(query)
 
     @invalidate
-    def save_items(self, data): 
+    def insert_items(self, data):
         """
         Save several items off to the databse. 
         :param data: The data to be saved. Expects a list or a class that subclasses data.
         """
         try: 
-            for item in data.__rows__: 
+            for item in data.__rows__:
                 self.save_item(item)
         except Exception: 
             for item in data: 
@@ -325,13 +348,13 @@ class GenericDatabase:
     @invalidate
     def remove_rows(self, t_type, limit = None, **kwargs): 
         """
-        Remove specified object from the database. 
+        Remove specified object from the database.
         :param t_type: type of object to be removed.
         :param limit: limit on rows to remove.
         :param kwargs: Parameters to filter by. 
         """
         kwargs = self.and_convert(kwargs)
-        query = f"DELETE FROM {self.__schema}.{type.table_name()}"
+        query = f"DELETE FROM {self.__schema}.{t_type.table_name()}"
 
         if kwargs: 
             query += kwargs
@@ -376,10 +399,10 @@ class GenericDatabase:
         self.execute(query)
 
         try: 
-            self.save_items(data)
+            self.insert_items(data)
         except TypeError: 
             try:    
-                self.save_item(data)
+                self.insert_item(data)
             except: 
                 pass
     
@@ -436,7 +459,3 @@ class GenericDatabase:
 
         self.execute(f"SELECT table_name FROM information_schema.TABLES WHERE table_schema = '{self.__schema}'")
         return tuple([f[0] for f in self.__cursor.fetchall()])
-
-
-
-

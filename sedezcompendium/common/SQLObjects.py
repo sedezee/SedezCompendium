@@ -47,7 +47,10 @@ class Row(metaclass = ABCMeta):
             return column_check(self.__columns__, other.__rows__[0].__columns__, other.__rows__[0])
         else: 
             return column_check(self.__columns__, other.__columns__, other)
-    
+
+    def __iter__(self):
+        return iter(self.__columns__)
+
     @classmethod
     def table_name(cls): 
         if hasattr(cls, "TABLE_NAME"):
@@ -73,16 +76,17 @@ class Row(metaclass = ABCMeta):
 
 
 class Table(metaclass = ABCMeta):
+    __columns__ = ()
     __rows__ = []
-    __columns__ = () 
 
     def __init__(self, *args):
+        self.__rows__ = []
         if self.__class__ == Table: 
             raise TypeError("Abstract classes cannot be instantized.")
         
         if args is not None: 
             for r in args: 
-               self.__rows__.append(r)
+                self.__rows__.append(r)
         
         if len(self.__rows__): 
             if self.__columns__ is None or len(self.__columns__) == 0:
@@ -91,10 +95,9 @@ class Table(metaclass = ABCMeta):
                 setattr(self, "ROW_TYPE", type(self.__rows__[0]))
         elif hasattr(self, "ROW_TYPE"): 
             self.__columns__ = getattr(self, "ROW_TYPE").__columns__
-
         for row in self.__rows__:
             self.check_row(row)
-    
+
     def check_row(self, row): 
         if not issubclass(type(row), Row):
             raise TypeError(f"Rows need to subclass Row. You're subclassing {type(row)}")
@@ -144,25 +147,36 @@ class Table(metaclass = ABCMeta):
 
     def __contains__(self, other): 
         return other in self.__rows__
-    
+
+    def __len__(self):
+        return len(self.__rows__)
+
     @classmethod
     def table_name(cls): 
         if hasattr(cls, "TABLE_NAME"):
             return getattr(cls, "TABLE_NAME")
+        elif hasattr(cls, "ROW_TYPE"):
+            return getattr(cls, "ROW_TYPE").table_name()
         else:
             return None
         
     @classmethod
-    def row_type(cls): 
-        if hasattr(cls, "ROW_TYPE"): 
+    def row_type(cls):
+        if hasattr(cls, "ROW_TYPE"):
             return getattr(cls, "ROW_TYPE")
-        elif len(cls.__rows__) != 0: 
+        elif len(cls.__rows__) != 0:
             return type(cls.__rows__[0])
         else: 
             return nRow
 
+    def remove_row(self, row):
+        try:
+            self.__rows__.remove(row)
+        except:
+            pass
+
     @classmethod
-    def remove_column(cls, column_name): 
+    def remove_column(cls, column_name):
         for row in cls.__rows__: 
             row.remove_column(column_name)
 
@@ -174,19 +188,17 @@ class Table(metaclass = ABCMeta):
 
         cls.__columns__ = tuple(c)
 
-    @classmethod 
-    def add_column(cls, column_name, column_type): 
-        for row in cls.__rows__: 
+    def add_column(self, column_name, column_type):
+        for row in self.__rows__:
             row.add_column(column_name)
         
-        c = list(cls.__columns__)
+        c = list(self.__columns__)
         c.append(column_name)
-        cls.__columns__ = tuple(c)
+        self.__columns__ = tuple(c)
 
-    @classmethod 
-    def add_row(cls, row): 
-        cls.check_row(row)
-        cls.__rows__.append(row)
+    def add_row(self, row):
+        self.check_row(row)
+        self.__rows__.append(row)
 
 
 class nRow(Row): 

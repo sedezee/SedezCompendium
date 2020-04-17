@@ -1,9 +1,15 @@
+import sys
+sys.path.append("C:\\Dev\\SedezCompendium")
+
 import unittest
 import sedezcompendium.common.SQLObjects as SQLObjects
 
-class TestRowMethods(unittest.TestCase): 
+
+class TestRowMethods(unittest.TestCase):
+
     class nRow(SQLObjects.Row): 
         __columns__ = ()
+
         def __init__(self, *rows, backwards = False):
             c = []
             self.__columns__ = ()
