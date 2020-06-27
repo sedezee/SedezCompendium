@@ -2,6 +2,7 @@ import discord
 from discord.ext.commands import HelpCommand 
 import time 
 from . import timezone
+from datetime import datetime
 
 
 def case(str_input, first_cap): 
@@ -149,4 +150,44 @@ class EastHelpCommand(discord.ext.commands.HelpCommand):
         await self.get_destination().send(embed = embed)
 
     
+def date_format(date_format, date_str):
+    format_list = []
+    date_list = []
+    for c in date_format:
+        format_list.append(c)
+        if c == "Y":
+            format_list.append(c)
+    for c in date_str:
+        date_list.append(c)
 
+    split_index = []
+    for index, c in enumerate(format_list):
+        if c != 'M' and c != 'D' and c != 'Y':
+            split_index.append(index)
+
+    i = 0
+    for index in split_index:
+        try:
+            int(date_list[index])
+            date_list.insert(i, '0')
+        except:
+            pass
+        finally:
+            i = index + 1
+            if format_list[index - 1] == 'M':
+                month = int(''.join(date_list[index - 2:index]))
+            elif format_list[index - 1] == 'D':
+                day = int(''.join(date_list[index - 2:index]))
+            elif format_list[index -1] == 'Y':
+                year = int(''.join(date_list[index - 4:index]))
+
+            if format_list[-1] == 'M':
+                month = int(''.join(date_list[-2:]))
+            elif format_list[-1] == 'D':
+                day = int(''.join(date_list[-2:]))
+            elif format_list[-1] == 'Y':
+                year = int(''.join(date_list[-4:]))
+
+    print(f"{month}")
+    date = datetime(year=year, month=month, day=day)
+    return date

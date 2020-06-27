@@ -125,9 +125,9 @@ class GenericDatabase:
         self.__port = port
         self.__username = username
         self.__password = password
-        self.__db_name = db_name
-        self.__schema = schema
-        self.__conn = None
+        self._db_name = db_name
+        self._schema = schema
+        self._conn = None
         if gen_cursor:
             self.__cursor = self.cursor_gen()
         else: 
@@ -157,9 +157,9 @@ class GenericDatabase:
         """
 
         try: 
-            conn = psycopg2.connect(host = self.__host, port = self.__port, user = self.__username, password = self.__password, database = self.__db_name)
+            conn = psycopg2.connect(host = self.__host, port = self.__port, user = self.__username, password = self.__password, database = self._db_name)
             conn.set_session(autocommit = True)
-            self.__conn = conn
+            self._conn = conn
             return conn.cursor()
 
         except Exception as e:
@@ -167,7 +167,7 @@ class GenericDatabase:
             return EmptyCursor()
 
     def is_connected(self):  
-        return self.__conn.poll() == psycopg2.extensions.POLL_OK
+        return self._conn.poll() == psycopg2.extensions.POLL_OK
     
     def gen_row(self, t_type, result):
         """
@@ -212,7 +212,7 @@ class GenericDatabase:
             self.execute("""
             SELECT exists(SELECT schema_name FROM information_schema.schemata
             WHERE schema_name = %s);""",
-                (str(self.__schema),)) 
+                         (str(self._schema),))
         
         return self.__cursor.fetchone()[0]  
         
@@ -237,7 +237,7 @@ class GenericDatabase:
         if not isinstance(t_type, type): 
             t_type = type(t_type) 
         kwargs = self.and_convert(kwargs)
-        query = f"SELECT * FROM {self.__schema}.{t_type.table_name()}"
+        query = f"SELECT * FROM {self._schema}.{t_type.table_name()}"
 
         if kwargs: 
             query += kwargs
@@ -266,7 +266,7 @@ class GenericDatabase:
         :return: if t_type subclasses table, a table of the same type. If not, a row. 
         """
         kwargs = self.and_convert(kwargs)
-        query = f"SELECT * FROM {self.__schema}.{t_type.table_name()}"
+        query = f"SELECT * FROM {self._schema}.{t_type.table_name()}"
         
         if kwargs: 
             query += kwargs
@@ -278,6 +278,7 @@ class GenericDatabase:
         try: 
             for res in result: 
                 r.append(self.gen_row(t_type, res))
+                print(res)
             
             return t_type(*r)
         except: 
@@ -291,7 +292,7 @@ class GenericDatabase:
     @invalidate
     def update_item(self, data, **kwargs):
         kwargs = self.and_convert(kwargs)
-        query = f"UPDATE {self.__schema}.{data.table_name()} SET "
+        query = f"UPDATE {self._schema}.{data.table_name()} SET "
         for cr in data:
             try:
                 for column in cr:
@@ -314,7 +315,7 @@ class GenericDatabase:
         Save an item to the database. 
         :param data: the data to load in. Subclasses Row or Table.  
         """
-        query = f"INSERT INTO {self.__schema}.{data.table_name()} ({','.join(data.__columns__)}) VALUES ("
+        query = f"INSERT INTO {self._schema}.{data.table_name()} ({','.join(data.__columns__)}) VALUES ("
 
         try: 
             if len(data.__rows__) == 1: 
@@ -354,7 +355,7 @@ class GenericDatabase:
         :param kwargs: Parameters to filter by. 
         """
         kwargs = self.and_convert(kwargs)
-        query = f"DELETE FROM {self.__schema}.{t_type.table_name()}"
+        query = f"DELETE FROM {self._schema}.{t_type.table_name()}"
 
         if kwargs: 
             query += kwargs
@@ -376,7 +377,7 @@ class GenericDatabase:
         if not isinstance(t_type, type):
             t_type = type(t_type)
 
-        query = f"SELECT * FROM {self.__schema}.{t_type.table_name()};"
+        query = f"SELECT * FROM {self._schema}.{t_type.table_name()};"
         self.execute(query)
         res = self.__cursor.fetchall()
         r = []
@@ -391,7 +392,7 @@ class GenericDatabase:
         :param columns: list of column definitions
         """
 
-        query = f"CREATE TABLE {self.__schema}.{data.table_name()} ("
+        query = f"CREATE TABLE {self._schema}.{data.table_name()} ("
         key_list = []
         for key in columns: 
             key_list.append(f"{key} {columns[key]},\n")
@@ -413,9 +414,9 @@ class GenericDatabase:
         :param table: name or type of table to drop.
         """
         if isinstance(table, str): 
-            self.execute(f"DROP TABLE {self.__schema}.{table};")
+            self.execute(f"DROP TABLE {self._schema}.{table};")
         else: 
-            self.execute(f"DROP TABLE {self.__schema}.{table.table_name()};")
+            self.execute(f"DROP TABLE {self._schema}.{table.table_name()};")
 
     @invalidate
     def remove_column(self, data, column):
@@ -429,7 +430,7 @@ class GenericDatabase:
             data.remove_column(column)
             data = data.table_name()
         
-        self.execute(f"ALTER TABLE {self.__schema}.{data} DROP COLUMN {column}")
+        self.execute(f"ALTER TABLE {self._schema}.{data} DROP COLUMN {column}")
 
     def add_column(self, data, column, column_type, default = None): 
         """
@@ -457,5 +458,5 @@ class GenericDatabase:
         :return: a tuple containing strings.
         """
 
-        self.execute(f"SELECT table_name FROM information_schema.TABLES WHERE table_schema = '{self.__schema}'")
+        self.execute(f"SELECT table_name FROM information_schema.TABLES WHERE table_schema = '{self._schema}'")
         return tuple([f[0] for f in self.__cursor.fetchall()])
